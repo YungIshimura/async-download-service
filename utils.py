@@ -4,9 +4,9 @@ import os
 import time
 
 
-async def create_archive_process(directory):
+async def create_archive_process(directory, unique_filename):
     process = await asyncio.create_subprocess_exec(
-        'zip', '-r9', 'images.zip', directory,
+        'zip', '-r9', unique_filename, directory,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,

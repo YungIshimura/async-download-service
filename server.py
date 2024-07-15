@@ -4,23 +4,27 @@ import time
 import aiofiles
 from aiohttp import web
 from aiologger import Logger
-
+import uuid
 from utils import (check_timeout, create_archive_process,
                    create_argparse_namespace)
 
 
 async def archive(request):
+    archive_hash = request.match_info.get('archive_hash', None)
+
+    directory = os.path.join(namespace.path, archive_hash)
+    if not os.path.isdir(directory):
+        return web.Response(text="404: Not Found", status=404, content_type='text/html')
+
     response = web.StreamResponse()
     response.headers['Content-Disposition'] = 'attachment; filename="images.zip"'
     await response.prepare(request)
 
-    archive_hash = request.match_info.get('archive_hash')
-    directory = os.path.join(namespace.path, archive_hash)
+    unique_filename = f"images_{uuid.uuid4().hex}.zip"
+    zip_path = os.path.join(os.getcwd(), unique_filename)
 
-    archive_process = await create_archive_process(directory)
+    archive_process = await create_archive_process(directory, unique_filename)
     await archive_process.communicate()
-
-    zip_path = os.path.join(os.getcwd(), 'images.zip')
 
     try:
         start_time = time.time()
@@ -36,7 +40,8 @@ async def archive(request):
         if namespace.logging:
             logger.error('Download was interrupted')
     finally:
-        os.remove(zip_path)
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
 
     return response
 
