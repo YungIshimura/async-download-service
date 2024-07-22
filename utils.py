@@ -1,24 +1,23 @@
 import argparse
 import asyncio
-import os
 import time
 
 
-async def create_archive_process(directory, unique_filename):
+async def create_archive_process(directory):
     process = await asyncio.create_subprocess_exec(
-        'zip', '-r9', unique_filename, directory,
-        stdin=asyncio.subprocess.PIPE,
+        'zip', '-r9', '-', '.',
         stdout=asyncio.subprocess.PIPE,
+        stdin=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=os.getcwd()
+        cwd=directory,
+        env={'PYTHONUNBUFFERED': '1'}
     )
     
     return process
 
 
-async def check_timeout(namespace, start_time, archive_process, logger):
+async def check_timeout(namespace, start_time, logger):
     if time.time() - start_time > namespace.timeout:
-        await archive_process.kill()
         if namespace.logging:
             logger.error('Download was interrupted')
         raise asyncio.CancelledError
@@ -43,7 +42,7 @@ def create_argparse_namespace():
         '-p',
         '--path',
         type=str,
-        default='test_photos/',
+        default='test_photos',
         help='Путь до папки с фото'
     )
 

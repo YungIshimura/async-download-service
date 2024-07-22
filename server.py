@@ -1,10 +1,8 @@
 import os
 import time
-
 import aiofiles
 from aiohttp import web
 from aiologger import Logger
-import uuid
 from utils import (check_timeout, create_archive_process,
                    create_argparse_namespace)
 
@@ -19,29 +17,24 @@ async def archive(request):
     response = web.StreamResponse()
     response.headers['Content-Disposition'] = 'attachment; filename="images.zip"'
     await response.prepare(request)
-
-    unique_filename = f"images_{uuid.uuid4().hex}.zip"
-    zip_path = os.path.join(os.getcwd(), unique_filename)
-
-    archive_process = await create_archive_process(directory, unique_filename)
-    await archive_process.communicate()
+    archive_process = await create_archive_process(directory)
 
     try:
+        chunk_size = 8192
+        part = await archive_process.stdout.read(chunk_size)
         start_time = time.time()
-        with open(zip_path, 'rb') as file:
-            while chunk := file.read(8192):
-                await check_timeout(namespace, start_time, archive_process, logger)
-                await response.write(chunk)
-
-                if namespace.logging:
-                    logger.info('Sending archive chunk ...')
-        await response.write_eof()
-    except TimeoutError:
+        while part:
+            await check_timeout(namespace, start_time, logger)
+            if namespace.logging:
+                logger.debug('Sending archive chunk ...')
+            await response.write(part)
+            part = await archive_process.stdout.read(chunk_size)
+    except (TimeoutError, TypeError):
         if namespace.logging:
             logger.error('Download was interrupted')
     finally:
-        if os.path.exists(zip_path):
-            os.remove(zip_path)
+        if archive_process.returncode != 0:
+            archive_process.kill()
 
     return response
 
