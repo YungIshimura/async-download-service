@@ -8,7 +8,7 @@ from utils import (check_timeout, create_archive_process,
 
 
 async def archive(request):
-    archive_hash = request.match_info.get('archive_hash', None)
+    archive_hash = request.match_info.get('archive_hash')
 
     directory = os.path.join(namespace.path, archive_hash)
     if not os.path.isdir(directory):
@@ -33,8 +33,9 @@ async def archive(request):
         if namespace.logging:
             logger.error('Download was interrupted')
     finally:
-        if archive_process.returncode != 0:
+        if archive_process.returncode is not None:
             archive_process.kill()
+            await archive_process.communicate()
 
     return response
 
